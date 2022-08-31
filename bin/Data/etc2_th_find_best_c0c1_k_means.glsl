@@ -134,7 +134,19 @@ void block_main_colors_find( out uint outC0, out uint outC1, uint c0, uint c1 )
 			// Actually we did not find the best match. But set this flag to abort
 			// the loop and keep on going with the original colours (using 'break'
 			// makes compilers go crazy)
-			bestMatchFound = true;
+			// bestMatchFound = true;
+			if (cluster0_cnt > 0) {
+				float3 rgb0 = getSrcPixel(cluster0[3]);
+				float3 rgb1 = getSrcPixel(cluster0[12]);
+				c0 = quant4(rgb0);
+				c1 = quant4(rgb1);
+			}
+			else { // if cluster1_cnt > 0
+				float3 rgb0 = getSrcPixel(cluster1[3]);
+				float3 rgb1 = getSrcPixel(cluster1[12]);
+				c0 = quant4(rgb0);
+				c1 = quant4(rgb1);
+			}
 		}
 		else
 		{
