@@ -218,8 +218,8 @@ float etc2_th_mode_calcError( const bool hMode, const uint c0, const uint c1, fl
 		uint top_mid_base_color = uint(top_right_base_color - top_left_base_color / 2);
 		uint threshold = 50000;
 		if ((top_right_base_color-top_left_base_color) > threshold) {
-			paintColors[2] = top_mid_base_color;
 			paintColors[1] = addSat(top_mid_base_color, distance);
+			paintColors[2] = top_mid_base_color;
 			paintColors[3] = addSat(top_mid_base_color, -distance);
 		}
 	}
@@ -231,6 +231,25 @@ float etc2_th_mode_calcError( const bool hMode, const uint c0, const uint c1, fl
 		paintColors[1] = addSat( c0, -distance );
 		paintColors[2] = addSat( c1, distance );
 		paintColors[3] = addSat( c1, -distance );
+
+		uint top_left_base_color = min(paintColors[0], paintColors[1]);
+		uint top_right_base_color = max(paintColors[0], paintColors[1]);
+		uint top_mid_base_color = uint(top_right_base_color - top_left_base_color / 2);
+
+		uint bottom_left_base_color = min(paintColors[2], paintColors[3]);
+		uint bottom_right_base_color = max(paintColors[2], paintColors[3]);
+		uint bottom_mid_base_color = uint(bottom_right_base_color - bottom_left_base_color / 2);
+
+		uint threshold = 1000;
+
+		if ((top_right_base_color-top_left_base_color) > threshold) {
+			paintColors[0] = addSat(top_mid_base_color, distance);
+			paintColors[1] = addSat(top_mid_base_color, -distance);
+		}
+		if ((bottom_right_base_color - bottom_left_base_color) > threshold) {
+			paintColors[2] = addSat(bottom_mid_base_color, distance);
+			paintColors[3] = addSat(bottom_mid_base_color, -distance);
+		}
 	}
 
 	float errAcc = 0;
@@ -311,13 +330,13 @@ uint etc2_gen_header_h_mode( const uint colour0, const uint colour1, const uint 
 void etc2_th_mode_write( const bool hMode, uint c0, uint c1, float distance, uint distIdx )
 {
 	uint paintColors[4];
+	uint temp = 0;
 
 	uint2 outputBytes;
 
 	if( !hMode ) // T mode 
 	{
 		// T mode를 실행하면 먼저 값에 대한 distance를 더해서 T 자로 만들어 준다. 
-		outputBytes.x = etc2_gen_header_t_mode( c0, c1, distIdx );
 
 		paintColors[0] = c0;
 		paintColors[1] = addSat( c1, distance );
@@ -329,10 +348,12 @@ void etc2_th_mode_write( const bool hMode, uint c0, uint c1, float distance, uin
 		uint top_mid_base_color = uint(top_right_base_color - top_left_base_color / 2);
 		uint threshold = 50000;
 		if ((top_right_base_color-top_left_base_color) > threshold) {
-			paintColors[2] = top_mid_base_color;
 			paintColors[1] = addSat(top_mid_base_color, distance);
+			paintColors[2] = top_mid_base_color;
 			paintColors[3] = addSat(top_mid_base_color, -distance);
 		}
+
+		outputBytes.x = etc2_gen_header_t_mode( c0, top_mid_base_color, distIdx );
 
 	}
 	else // H mode 
@@ -352,6 +373,28 @@ void etc2_th_mode_write( const bool hMode, uint c0, uint c1, float distance, uin
 		paintColors[1] = addSat( c0, -distance );
 		paintColors[2] = addSat( c1, distance );
 		paintColors[3] = addSat( c1, -distance );
+
+		uint top_left_base_color = min(paintColors[0], paintColors[1]);
+		uint top_right_base_color = max(paintColors[0], paintColors[1]);
+		uint top_mid_base_color = uint(top_right_base_color - top_left_base_color / 2);
+
+		uint bottom_left_base_color = min(paintColors[2], paintColors[3]);
+		uint bottom_right_base_color = max(paintColors[2], paintColors[3]);
+		uint bottom_mid_base_color = uint(bottom_right_base_color - bottom_left_base_color / 2);
+		temp = uint(bottom_right_base_color - bottom_left_base_color);
+
+		uint threshold = 1000;
+
+		if ((top_right_base_color-top_left_base_color) > threshold) {
+			paintColors[0] = addSat(top_mid_base_color, distance);
+			paintColors[1] = addSat(top_mid_base_color, -distance);
+			outputBytes.x = etc2_gen_header_h_mode( top_mid_base_color, c1, distIdx, bShouldSwap );
+		}
+		if ((bottom_right_base_color - bottom_left_base_color) > threshold) {
+			paintColors[2] = addSat(bottom_mid_base_color, distance);
+			paintColors[3] = addSat(bottom_mid_base_color, -distance);
+			outputBytes.x = etc2_gen_header_h_mode( c0, bottom_mid_base_color, distIdx, bShouldSwap );
+		}
 
 	}
 
@@ -383,7 +426,8 @@ void etc2_th_mode_write( const bool hMode, uint c0, uint c1, float distance, uin
 
 	const uint2 dstUV = gl_WorkGroupID.xy;
 	imageStore( dstTexture, int2( dstUV ), uint4( outputBytes.xy, 0u, 0u ) );
-	// imageStore( dstTexture, int2( dstUV ), uint4( 0u, 0u, 0u, 0u ) );
+	if (hMode && temp > 1000)
+		imageStore( dstTexture, int2( dstUV ), uint4( 0u, 0u, 0u, 0u ) );
 	// imageStore( dstTexture, int2( dstUV ), uint4( outputBytes.xy, 0u, 0u ) );
 }
 
