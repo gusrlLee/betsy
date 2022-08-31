@@ -15,6 +15,8 @@ layout( local_size_x = 120,  //
 		local_size_y = 4,    //
 		local_size_z = 2 ) in;
 
+#define FLT_MAX 340282346638528859811704183484516925440.0f
+
 /*
 kLocalInvocationToPixIdx table generated with:
 	int main()
@@ -109,7 +111,12 @@ void block_main_colors_find( out uint outC0, out uint outC1, uint c0, uint c1 )
 		int cluster0_cnt = 0, cluster1_cnt = 0;
 		int cluster0[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 		int cluster1[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-		float maxDist0 = 0, maxDist1 = 0;
+		float minDist0 = FLT_MAX, maxDist0 = 0;
+		float minDist1 = FLT_MAX, maxDist1 = 0;
+
+		int minDist0_idx = 0, maxDist0_idx = 0;
+		int minDist1_idx = 0, maxDist1_idx = 0;
+		
 
 		// k-means assignment step
 		for( int k = 0; k < 16; ++k )
@@ -120,11 +127,30 @@ void block_main_colors_find( out uint outC0, out uint outC1, uint c0, uint c1 )
 			{
 				cluster0[cluster0_cnt++] = k;
 				maxDist0 = max( dist0, maxDist0 );
+				if (minDist0 > dist0) {
+					minDist0 = dist0;
+					minDist0_idx = k;
+				}
+
+				if (maxDist0 < dist0) {
+					maxDist0 = dist0;
+					maxDist0_idx = k;
+				}
+
 			}
 			else
 			{
 				cluster1[cluster1_cnt++] = k;
 				maxDist1 = max( dist1, maxDist1 );
+				if (minDist1 > dist1) {
+					minDist1 = dist1;
+					minDist1_idx = k;
+				}
+
+				if (maxDist1 < dist1) {
+					maxDist1 = dist1;
+					maxDist1_idx = k;
+				}
 			}
 		}
 
@@ -136,14 +162,14 @@ void block_main_colors_find( out uint outC0, out uint outC1, uint c0, uint c1 )
 			// makes compilers go crazy)
 			// bestMatchFound = true;
 			if (cluster0_cnt > 0) {
-				float3 rgb0 = getSrcPixel(cluster0[3]);
-				float3 rgb1 = getSrcPixel(cluster0[12]);
+				float3 rgb0 = getSrcPixel(maxDist0_idx);
+				float3 rgb1 = getSrcPixel(minDist0_idx);
 				c0 = quant4(rgb0);
 				c1 = quant4(rgb1);
 			}
 			else { // if cluster1_cnt > 0
-				float3 rgb0 = getSrcPixel(cluster1[3]);
-				float3 rgb1 = getSrcPixel(cluster1[12]);
+				float3 rgb0 = getSrcPixel(maxDist1_idx);
+				float3 rgb1 = getSrcPixel(minDist1_idx);
 				c0 = quant4(rgb0);
 				c1 = quant4(rgb1);
 			}

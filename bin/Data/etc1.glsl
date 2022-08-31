@@ -867,7 +867,9 @@ void main()
 #endif
 
 		uint2 dstUV = gl_GlobalInvocationID.yz;
+		// origin
 		imageStore( dstTexture, int2( dstUV ), uint4( outputBytes.xy, 0u, 0u ) );
+		// imageStore( dstTexture, int2( dstUV ), uint4( 0u, 0u, 0u, 0u ) );
 #ifdef OUTPUT_ERROR
 		imageStore( dstError, int2( dstUV ),
 					float4( results[0].error + results[1].error, 0.0f, 0.0f, 0.0f ) );
