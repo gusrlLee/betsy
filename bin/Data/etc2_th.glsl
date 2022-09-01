@@ -205,8 +205,7 @@ uint addSat( const uint packedRgb, float value )
 float etc2_th_mode_calcError( const bool hMode, const uint c0, const uint c1, float distance )
 {
 	uint paintColors[4];
-
-	if( !hMode )
+	if( !hMode ) // T mode 
 	{
 		paintColors[0] = c0;
 		paintColors[1] = addSat( c1, distance );
@@ -216,14 +215,17 @@ float etc2_th_mode_calcError( const bool hMode, const uint c0, const uint c1, fl
 		uint top_left_base_color = min(paintColors[1], paintColors[2]);
 		uint top_right_base_color = max(paintColors[1], paintColors[2]);
 		uint top_mid_base_color = uint(top_right_base_color - top_left_base_color / 2);
-		uint threshold = 50000;
+
+		uint threshold = 10000;
+		// T 모드 경우, distance를 더했을 때 오차가 너무 크게 존재를 한다면 적당한 threshold를 주어
+		// mid point로 설정을 다시해서 연산을 진행하도록 한다. 
 		if ((top_right_base_color-top_left_base_color) > threshold) {
 			paintColors[1] = addSat(top_mid_base_color, distance);
 			paintColors[2] = top_mid_base_color;
 			paintColors[3] = addSat(top_mid_base_color, -distance);
 		}
 	}
-	else
+	else // H mode 
 	{
 		// We don't care about swapping c0 & c1 because we're only calculating error
 		// and both variations produce the same result
@@ -240,15 +242,29 @@ float etc2_th_mode_calcError( const bool hMode, const uint c0, const uint c1, fl
 		uint bottom_right_base_color = max(paintColors[2], paintColors[3]);
 		uint bottom_mid_base_color = uint(bottom_right_base_color - bottom_left_base_color / 2);
 
-		uint threshold = 1000;
+		uint threshold = 10000;
+		uint top_diff = top_right_base_color - top_left_base_color;
+		uint bottom_diff = bottom_right_base_color - bottom_left_base_color;
 
-		if ((top_right_base_color-top_left_base_color) > threshold) {
+		if (top_diff > threshold && bottom_diff > threshold) {
+			paintColors[0] = addSat(top_mid_base_color, distance);
+			paintColors[1] = addSat(top_mid_base_color, -distance);
+			paintColors[2] = addSat(bottom_mid_base_color, distance);
+			paintColors[3] = addSat(bottom_mid_base_color, -distance);
+		}
+		else if (top_diff > threshold &&  bottom_diff < threshold) {
 			paintColors[0] = addSat(top_mid_base_color, distance);
 			paintColors[1] = addSat(top_mid_base_color, -distance);
 		}
-		if ((bottom_right_base_color - bottom_left_base_color) > threshold) {
+		else if (top_diff < threshold && bottom_diff > threshold) {
 			paintColors[2] = addSat(bottom_mid_base_color, distance);
 			paintColors[3] = addSat(bottom_mid_base_color, -distance);
+		}
+		else {
+			paintColors[0] = addSat( c0, distance );
+			paintColors[1] = addSat( c0, -distance );
+			paintColors[2] = addSat( c1, distance );
+			paintColors[3] = addSat( c1, -distance );
 		}
 	}
 
@@ -346,7 +362,7 @@ void etc2_th_mode_write( const bool hMode, uint c0, uint c1, float distance, uin
 		uint top_left_base_color = min(paintColors[1], paintColors[2]);
 		uint top_right_base_color = max(paintColors[1], paintColors[2]);
 		uint top_mid_base_color = uint(top_right_base_color - top_left_base_color / 2);
-		uint threshold = 50000;
+		uint threshold = 10000;
 		if ((top_right_base_color-top_left_base_color) > threshold) {
 			paintColors[1] = addSat(top_mid_base_color, distance);
 			paintColors[2] = top_mid_base_color;
@@ -383,19 +399,35 @@ void etc2_th_mode_write( const bool hMode, uint c0, uint c1, float distance, uin
 		uint bottom_mid_base_color = uint(bottom_right_base_color - bottom_left_base_color / 2);
 		temp = uint(bottom_right_base_color - bottom_left_base_color);
 
-		uint threshold = 1000;
+		uint threshold = 10000;
 
-		if ((top_right_base_color-top_left_base_color) > threshold) {
+		uint top_diff = top_right_base_color - top_left_base_color;
+		uint bottom_diff = bottom_right_base_color - bottom_left_base_color;
+
+		if (top_diff > threshold && bottom_diff > threshold) {
+			outputBytes.x = etc2_gen_header_h_mode( top_mid_base_color, bottom_mid_base_color, distIdx, bShouldSwap );
 			paintColors[0] = addSat(top_mid_base_color, distance);
 			paintColors[1] = addSat(top_mid_base_color, -distance);
-			outputBytes.x = etc2_gen_header_h_mode( top_mid_base_color, c1, distIdx, bShouldSwap );
-		}
-		if ((bottom_right_base_color - bottom_left_base_color) > threshold) {
 			paintColors[2] = addSat(bottom_mid_base_color, distance);
 			paintColors[3] = addSat(bottom_mid_base_color, -distance);
-			outputBytes.x = etc2_gen_header_h_mode( c0, bottom_mid_base_color, distIdx, bShouldSwap );
 		}
-
+		else if (top_diff > threshold && bottom_diff < threshold) {
+			outputBytes.x = etc2_gen_header_h_mode( top_mid_base_color, c1, distIdx, bShouldSwap );
+			paintColors[0] = addSat(top_mid_base_color, distance);
+			paintColors[1] = addSat(top_mid_base_color, -distance);
+		}
+		else if (top_diff < threshold && bottom_diff > threshold) {
+			outputBytes.x = etc2_gen_header_h_mode( c0, bottom_mid_base_color, distIdx, bShouldSwap );
+			paintColors[2] = addSat(bottom_mid_base_color, distance);
+			paintColors[3] = addSat(bottom_mid_base_color, -distance);
+		}
+		else {
+			outputBytes.x = etc2_gen_header_h_mode( c0, c1, distIdx, bShouldSwap );
+			paintColors[0] = addSat( c0, distance );
+			paintColors[1] = addSat( c0, -distance );
+			paintColors[2] = addSat( c1, distance );
+			paintColors[3] = addSat( c1, -distance );
+		}
 	}
 
 	outputBytes.y = 0u;
@@ -426,8 +458,11 @@ void etc2_th_mode_write( const bool hMode, uint c0, uint c1, float distance, uin
 
 	const uint2 dstUV = gl_WorkGroupID.xy;
 	imageStore( dstTexture, int2( dstUV ), uint4( outputBytes.xy, 0u, 0u ) );
-	if (hMode && temp > 1000)
-		imageStore( dstTexture, int2( dstUV ), uint4( 0u, 0u, 0u, 0u ) );
+	// imageStore( dstTexture, int2( dstUV ), uint4( 0u, 0u, 0u, 0u ) );
+	// if (!hMode)
+	// 	imageStore( dstTexture, int2( dstUV ), uint4( 0u, 0u, 0u, 0u ) );
+	// else
+	// 	imageStore( dstTexture, int2( dstUV ), uint4( 0u, 0u, 0u, 0u ) );
 	// imageStore( dstTexture, int2( dstUV ), uint4( outputBytes.xy, 0u, 0u ) );
 }
 
@@ -558,5 +593,6 @@ void main()
 
 		const uint2 dstUV = gl_WorkGroupID.xy;
 		imageStore( dstError, int2( dstUV ), float4( g_bestCandidates[0].x, 0.0f, 0.0f, 0.0f ) );
+		// imageStore( dstError, int2( dstUV ), float4( 0.0f, 0.0f, 0.0f, 0.0f ) );
 	}
 }

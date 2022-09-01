@@ -1,4 +1,5 @@
 #define NOMINMAX
+#define DEBUG_LINK_ERRORS
 
 #include "betsy/CpuImage.h"
 #include "betsy/EncoderBC1.h"
